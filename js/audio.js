@@ -17,6 +17,8 @@ function GameBoyAdvanceAudio() {
 	} else {
 		this.context = null;
 	}
+console.log('Master Volume:', this.masterVolume);
+console.log('Channel A Enabled:', this.enableChannelA);
 
 	this.masterEnable = true;
 	this.masterVolume = 1.0;
