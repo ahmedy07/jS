@@ -715,6 +715,9 @@ GameBoyAdvanceAudio.prototype.sample = function() {
 	}
 	this.samplePointer = (samplePointer + 1) & this.sampleMask;
 };
+if (this.context.state === 'suspended') {
+    this.context.resume();
+}
 
 GameBoyAdvanceAudio.prototype.audioProcess = function(audioProcessingEvent) {
 	var left = audioProcessingEvent.outputBuffer.getChannelData(0);
