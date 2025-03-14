@@ -2,16 +2,42 @@
 <head>
 <!DOCTYPE html>
 <html lang="fr">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mode Plein Écran</title>
-    <script defer src="video.js"></script>
+    <title>Plein Écran</title>
+    <style>
+        /* Style pour le bouton */
+        #fullscreen-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <div id="content">
-        <h1>Appuyez sur "F" pour passer en plein écran</h1>
-        <!-- Votre contenu ici -->
+    <button id="fullscreen-button">Plein Écran</button>
+
+    <script>
+        // JavaScript pour activer le mode plein écran
+        document.getElementById('fullscreen-button').addEventListener('click', function() {
+            var elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.mozRequestFullScreen) { // Firefox
+                elem.mozRequestFullScreen();
+            } else if (elem.webkitRequestFullscreen) { // Chrome, Safari et Opera
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { // IE/Edge
+                elem.msRequestFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>
+
     </div>
 </body>
 </html>
