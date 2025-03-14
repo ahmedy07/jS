@@ -1,3 +1,21 @@
+GameBoyAdvanceVideo.prototype.finishDraw = function(pixelData) {
+	this.context.putImageData(pixelData, 0, 0);
+	this.drawCallback();
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'f' || event.key === 'F') {
+        let element = document.getElementById('content');
+        if (element.requestFullscreen) {
+            element.requestFullscreen();
+        } else if (element.mozRequestFullScreen) { // Firefox
+            element.mozRequestFullScreen();
+        } else if (element.webkitRequestFullscreen) { // Chrome, Safari and Opera
+            element.webkitRequestFullscreen();
+        } else if (element.msRequestFullscreen) { // IE/Edge
+            element.msRequestFullscreen();
+        }
+    }
+}); 
+
 function GameBoyAdvanceVideo() {
 	this.renderPath = new GameBoyAdvanceSoftwareRenderer();
 
@@ -172,24 +190,4 @@ GameBoyAdvanceVideo.prototype.writeDisplayStat = function(value) {
 
 GameBoyAdvanceVideo.prototype.readDisplayStat = function() {
 	return (this.inVblank) | (this.inHblank << 1) | (this.vcounter << 2);
-};
-
-GameBoyAdvanceVideo.prototype.finishDraw = function(pixelData) {
-	this.context.putImageData(pixelData, 0, 0);
-	this.drawCallback();
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'f' || event.key === 'F') {
-        let element = document.getElementById('content');
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-        } else if (element.mozRequestFullScreen) { // Firefox
-            element.mozRequestFullScreen();
-        } else if (element.webkitRequestFullscreen) { // Chrome, Safari and Opera
-            element.webkitRequestFullscreen();
-        } else if (element.msRequestFullscreen) { // IE/Edge
-            element.msRequestFullscreen();
-        }
-    }
-});
-
 };
