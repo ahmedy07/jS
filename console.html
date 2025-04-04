@@ -26,38 +26,6 @@ function runTest(r) {
 	core.DEBUG("ROM loaded: " + core.rom.title + " [" + core.rom.code + "] (" + r.byteLength + " bytes)");
 	gbaCon.memory.refreshAll();
 }
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'f' || event.key === 'F') {
-        let element = document.getElementById('content');
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-        } else if (element.mozRequestFullScreen) { // Firefox
-            element.mozRequestFullScreen();
-        } else if (element.webkitRequestFullscreen) { // Chrome, Safari and Opera
-            element.webkitRequestFullscreen();
-        } else if (element.msRequestFullscreen) { // IE/Edge
-            element.msRequestFullscreen();
-        }
-    }
-});
-
-function executeCommand() {
-    const input = document.getElementById('input');
-    const command = input.value;
-    const consoleOutput = document.getElementById('console');
-
-    // Exemple de commande : afficher la commande saisie
-    const output = `> ${command}\nRésultat de "${command}"`;
-
-    // Ajouter la sortie à la console
-    const outputElement = document.createElement('div');
-    outputElement.textContent = output;
-    consoleOutput.appendChild(outputElement);
-
-    // Effacer l'entrée
-    input.value = '';
-}
-
 
 function loadRomFromFile(romFile) {
 	var reader = new FileReader();
