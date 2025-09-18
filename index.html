@@ -60,20 +60,26 @@ window.onload = function() {
 		});
 
 		if (!gba.audio.context) {
-			// Remove the sound box if sound isn't available
-			var soundbox = document.getElementById('sound');
-			soundbox.parentElement.removeChild(soundbox);
-		}
+		try {
+    // Vérifie si l'API AudioContext est disponible
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+        // Supprime l'élément si l'audio n'est pas pris en charge
+        var soundbox = document.getElementById('sound');
+        if (soundbox && soundbox.parentElement) {
+            soundbox.parentElement.removeChild(soundbox);
+        }
+    } else {
+        // Initialise le contexte audio si disponible
+        gba.audio.context = new AudioContext();
+    }
+} catch (e) {
+    // En cas d'erreur, supprime l'élément audio
+    var soundbox = document.getElementById('sound');
+    if (soundbox && soundbox.parentElement) {
+        soundbox.parentElement.removeChild(soundbox);
+    }
 
-		if (window.navigator.appName == 'Microsoft Internet Explorer') {
-			// Remove the pixelated option if it doesn't work
-			var pixelatedBox = document.getElementById('pixelated');
-			pixelatedBox.parentElement.removeChild(pixelatedBox);
-		}
-	} else {
-		var dead = document.getElementById('controls');
-		dead.parentElement.removeChild(dead);
-	}
 }
 
 function fadeOut(id, nextId, kill) {
