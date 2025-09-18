@@ -86,35 +86,21 @@ try {
 }
 
 window.onload = function() {
-    
-	if (gba && FileReader) {
-        var canvas = document.getElementById('screen');
-        gba.setCanvas(canvas);
+    f (!gba.audio.context) {
+			// Remove the sound box if sound isn't available
+			var soundbox = document.getElementById('sound');
+			soundbox.parentElement.removeChild(soundbox);
+		}
 
-        gba.logLevel = gba.LOG_ERROR;
-
-        loadRom('resources/bios.bin', function(bios) {
-            gba.setBios(bios);
-
-            // 🔊 AudioContext universel
-            try {
-                var AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (AudioContext) {
-                    gba.audio.context = new AudioContext();
-                } else {
-                    var soundbox = document.getElementById('sound');
-                    if (soundbox && soundbox.parentElement) {
-                        soundbox.parentElement.removeChild(soundbox);
-                    }
-                }
-            } catch (e) {
-                var soundbox = document.getElementById('sound');
-                if (soundbox && soundbox.parentElement) {
-                    soundbox.parentElement.removeChild(soundbox);
-                }
-    }
-
-
+		if (window.navigator.appName == 'Microsoft Internet Explorer') {
+			// Remove the pixelated option if it doesn't work
+			var pixelatedBox = document.getElementById('pixelated');
+			pixelatedBox.parentElement.removeChild(pixelatedBox);
+		}
+	} else {
+		var dead = document.getElementById('controls');
+		dead.parentElement.removeChild(dead);
+	}
 }
 
 function fadeOut(id, nextId, kill) {
