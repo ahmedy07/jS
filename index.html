@@ -1,8 +1,7 @@
-
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Ahmed.jS</title>
+<title>ahmed.jS</title>
 <link rel="stylesheet" href="resources/main.css">
 <script src="js/util.js"></script>
 <script src="js/core.js"></script>
@@ -59,34 +58,7 @@ window.onload = function() {
 			gba.setBios(bios);
 		});
 
-		<script>
-var gba;
-var runCommands = [];
-var debug = null;
-
-try {
-    gba = new GameBoyAdvance();
-    gba.keypad.eatInput = true;
-    gba.setLogger(function(level, error) {
-        console.log(error);
-        gba.pause();
-        var screen = document.getElementById('screen');
-        if (screen.getAttribute('class') == 'dead') {
-            console.log('We appear to have crashed multiple times without reseting.');
-            return;
-        }
-        var crash = document.createElement('img');
-        crash.setAttribute('id', 'crash');
-        crash.setAttribute('src', 'resources/crash.png');
-        screen.parentElement.insertBefore(crash, screen);
-        screen.setAttribute('class', 'dead');
-    });
-} catch (exception) {
-    gba = null;
-}
-
-window.onload = function() {
-    f (!gba.audio.context) {
+		if (!gba.audio.context) {
 			// Remove the sound box if sound isn't available
 			var soundbox = document.getElementById('sound');
 			soundbox.parentElement.removeChild(soundbox);
@@ -337,5 +309,6 @@ document.addEventListener('webkitfullscreenchange', function() {
 		</div>
 		<p id="openDebug" onclick="enableDebug()">Debugger</p>
 	</div>
+</section>
 </body>
 </html>
