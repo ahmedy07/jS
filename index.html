@@ -59,26 +59,61 @@ window.onload = function() {
 			gba.setBios(bios);
 		});
 
-		if (!gba.audio.context) {
-		try {
-    // Vérifie si l'API AudioContext est disponible
-    var AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) {
-        // Supprime l'élément si l'audio n'est pas pris en charge
-        var soundbox = document.getElementById('sound');
-        if (soundbox && soundbox.parentElement) {
-            soundbox.parentElement.removeChild(soundbox);
+		<script>
+var gba;
+var runCommands = [];
+var debug = null;
+
+try {
+    gba = new GameBoyAdvance();
+    gba.keypad.eatInput = true;
+    gba.setLogger(function(level, error) {
+        console.log(error);
+        gba.pause();
+        var screen = document.getElementById('screen');
+        if (screen.getAttribute('class') == 'dead') {
+            console.log('We appear to have crashed multiple times without reseting.');
+            return;
         }
-    } else {
-        // Initialise le contexte audio si disponible
-        gba.audio.context = new AudioContext();
+        var crash = document.createElement('img');
+        crash.setAttribute('id', 'crash');
+        crash.setAttribute('src', 'resources/crash.png');
+        screen.parentElement.insertBefore(crash, screen);
+        screen.setAttribute('class', 'dead');
+    });
+} catch (exception) {
+    gba = null;
+}
+
+window.onload = function() {
+    
+	if (gba && FileReader) {
+        var canvas = document.getElementById('screen');
+        gba.setCanvas(canvas);
+
+        gba.logLevel = gba.LOG_ERROR;
+
+        loadRom('resources/bios.bin', function(bios) {
+            gba.setBios(bios);
+
+            // 🔊 AudioContext universel
+            try {
+                var AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    gba.audio.context = new AudioContext();
+                } else {
+                    var soundbox = document.getElementById('sound');
+                    if (soundbox && soundbox.parentElement) {
+                        soundbox.parentElement.removeChild(soundbox);
+                    }
+                }
+            } catch (e) {
+                var soundbox = document.getElementById('sound');
+                if (soundbox && soundbox.parentElement) {
+                    soundbox.parentElement.removeChild(soundbox);
+                }
     }
-} catch (e) {
-    // En cas d'erreur, supprime l'élément audio
-    var soundbox = document.getElementById('sound');
-    if (soundbox && soundbox.parentElement) {
-        soundbox.parentElement.removeChild(soundbox);
-    }
+
 
 }
 
