@@ -10,18 +10,6 @@ function GameBoyAdvanceKeypad() {
     this.KEYCODE_L = 65;
     this.KEYCODE_R = 83;
 
-    this.GAMEPAD_LEFT = 14;
-    this.GAMEPAD_UP = 12;
-    this.GAMEPAD_RIGHT = 15;
-    this.GAMEPAD_DOWN = 13;
-    this.GAMEPAD_START = 9;
-    this.GAMEPAD_SELECT = 8;
-    this.GAMEPAD_A = 1;
-    this.GAMEPAD_B = 0;
-    this.GAMEPAD_L = 4;
-    this.GAMEPAD_R = 5;
-    this.GAMEPAD_THRESHOLD = 0.2;
-
     this.A = 0;
     this.B = 1;
     this.SELECT = 2;
@@ -35,67 +23,45 @@ function GameBoyAdvanceKeypad() {
 
     this.currentDown = 0x03FF;
     this.eatInput = false;
-
     this.gamepads = [];
-};
+}
 
-GameBoyAdvanceKeypad.prototype.keyboardHandler = function(e) {
+// --- GESTION CLAVIER ---
+GameBoyAdvanceKeypad.prototype.keyboardHandler = function (e) {
     var toggle = 0;
     switch (e.keyCode) {
-    case this.KEYCODE_START:
-        toggle = this.START;
-        break;
-    case this.KEYCODE_SELECT:
-        toggle = this.SELECT;
-        break;
-    case this.KEYCODE_A:
-        toggle = this.A;
-        break;
-    case this.KEYCODE_B:
-        toggle = this.B;
-        break;
-    case this.KEYCODE_L:
-        toggle = this.L;
-        break;
-    case this.KEYCODE_R:
-        toggle = this.R;
-        break;
-    case this.KEYCODE_UP:
-        toggle = this.UP;
-        break;
-    case this.KEYCODE_RIGHT:
-        toggle = this.RIGHT;
-        break;
-    case this.KEYCODE_DOWN:
-        toggle = this.DOWN;
-        break;
-    case this.KEYCODE_LEFT:
-        toggle = this.LEFT;
-        break;
-    default:
-        return;
+        case this.KEYCODE_START: toggle = this.START; break;
+        case this.KEYCODE_SELECT: toggle = this.SELECT; break;
+        case this.KEYCODE_A: toggle = this.A; break;
+        case this.KEYCODE_B: toggle = this.B; break;
+        case this.KEYCODE_L: toggle = this.L; break;
+        case this.KEYCODE_R: toggle = this.R; break;
+        case this.KEYCODE_UP: toggle = this.UP; break;
+        case this.KEYCODE_RIGHT: toggle = this.RIGHT; break;
+        case this.KEYCODE_DOWN: toggle = this.DOWN; break;
+        case this.KEYCODE_LEFT: toggle = this.LEFT; break;
+        default: return;
     }
 
     toggle = 1 << toggle;
-    if (e.type == "keydown") {
+    if (e.type === "keydown") {
         this.currentDown &= ~toggle;
     } else {
         this.currentDown |= toggle;
     }
 
-    if (this.eatInput) {
-        e.preventDefault();
-    }
+    if (this.eatInput) e.preventDefault();
 };
 
-GameBoyAdvanceKeypad.prototype.mouseHandler = function(e) {
+// --- GESTION SOURIS (A = clic gauche, B = clic droit) ---
+GameBoyAdvanceKeypad.prototype.mouseHandler = function (e) {
     let toggle = null;
 
     if (e.type === "mousedown") {
-        if (e.button === 0) { // Clic gauche
+        if (e.button === 0) { // clic gauche
             toggle = 1 << this.A;
             this.currentDown &= ~toggle;
-        } else if (e.button === 2) { // Clic droit
+        } else if (e.button === 2) { // clic droit
             toggle = 1 << this.B;
             this.currentDown &= ~toggle;
         }
@@ -109,91 +75,76 @@ GameBoyAdvanceKeypad.prototype.mouseHandler = function(e) {
         }
     }
 
-    if (this.eatInput && toggle !== null) {
-        e.preventDefault();
-    }
+    if (this.eatInput && toggle !== null) e.preventDefault();
 };
 
-GameBoyAdvanceKeypad.prototype.gamepadHandler = function(gamepad) {
-    var value = 0;
-    if (gamepad.buttons[this.GAMEPAD_LEFT] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.LEFT;
-    }
-    if (gamepad.buttons[this.GAMEPAD_UP] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.UP;
-    }
-    if (gamepad.buttons[this.GAMEPAD_RIGHT] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.RIGHT;
-    }
-    if (gamepad.buttons[this.GAMEPAD_DOWN] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.DOWN;
-    }
-    if (gamepad.buttons[this.GAMEPAD_START] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.START;
-    }
-    if (gamepad.buttons[this.GAMEPAD_SELECT] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.SELECT;
-    }
-    if (gamepad.buttons[this.GAMEPAD_A] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.A;
-    }
-    if (gamepad.buttons[this.GAMEPAD_B] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.B;
-    }
-    if (gamepad.buttons[this.GAMEPAD_L] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.L;
-    }
-    if (gamepad.buttons[this.GAMEPAD_R] > this.GAMEPAD_THRESHOLD) {
-        value |= 1 << this.R;
-    }
+// --- GESTION MANETTE XBOX ---
+GameBoyAdvanceKeypad.prototype.gamepadHandler = function (gamepad) {
+    let value = 0;
 
+    // --- Stick gauche (axes analogiques)
+    const AXIS_THRESHOLD = 0.5;
+    const axisX = gamepad.axes[0];
+    const axisY = gamepad.axes[1];
+
+    if (axisX < -AXIS_THRESHOLD) value |= 1 << this.LEFT;
+    if (axisX > AXIS_THRESHOLD) value |= 1 << this.RIGHT;
+    if (axisY < -AXIS_THRESHOLD) value |= 1 << this.UP;
+    if (axisY > AXIS_THRESHOLD) value |= 1 << this.DOWN;
+
+    // --- Croix directionnelle (D-Pad)
+    if (gamepad.buttons[14]?.pressed) value |= 1 << this.LEFT;
+    if (gamepad.buttons[15]?.pressed) value |= 1 << this.RIGHT;
+    if (gamepad.buttons[12]?.pressed) value |= 1 << this.UP;
+    if (gamepad.buttons[13]?.pressed) value |= 1 << this.DOWN;
+
+    // --- Boutons principaux Xbox
+    if (gamepad.buttons[0]?.pressed) value |= 1 << this.B; // A (Xbox) → B (GBA)
+    if (gamepad.buttons[1]?.pressed) value |= 1 << this.A; // B (Xbox) → A (GBA)
+    if (gamepad.buttons[4]?.pressed) value |= 1 << this.L; // LB
+    if (gamepad.buttons[5]?.pressed) value |= 1 << this.R; // RB
+
+    // --- Start / Select
+    if (gamepad.buttons[9]?.pressed) value |= 1 << this.START;  // Start
+    if (gamepad.buttons[8]?.pressed) value |= 1 << this.SELECT; // Back
+
+    // --- Appliquer l'état
     this.currentDown = ~value & 0x3FF;
 };
 
-GameBoyAdvanceKeypad.prototype.gamepadConnectHandler = function(gamepad) {
+// --- GESTION CONNEXION / DÉCONNEXION ---
+GameBoyAdvanceKeypad.prototype.gamepadConnectHandler = function (gamepad) {
+    console.log("🎮 Manette connectée :", gamepad.id);
     this.gamepads.push(gamepad);
 };
 
-GameBoyAdvanceKeypad.prototype.gamepadDisconnectHandler = function(gamepad) {
-    this.gamepads = self.gamepads.filter(function(other) { return other != gamepad });
+GameBoyAdvanceKeypad.prototype.gamepadDisconnectHandler = function (gamepad) {
+    console.log("❌ Manette déconnectée :", gamepad.id);
+    this.gamepads = this.gamepads.filter(g => g !== gamepad);
 };
 
-GameBoyAdvanceKeypad.prototype.pollGamepads = function() {
-    var navigatorList = [];
-    if (navigator.webkitGetGamepads) {
-        navigatorList = navigator.webkitGetGamepads();
-    } else if (navigator.getGamepads) {
-        navigatorList = navigator.getGamepads();
-    }
-
-    if (navigatorList.length) {
-        this.gamepads = [];
-    }
-    for (var i = 0; i < navigatorList.length; ++i) {
-        if (navigatorList[i]) {
-            this.gamepads.push(navigatorList[i]);
+// --- POLLING MANETTE ---
+GameBoyAdvanceKeypad.prototype.pollGamepads = function () {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const pad of pads) {
+        if (pad) {
+            this.gamepadHandler(pad);
+            // Debug (tu peux activer pour voir les boutons)
+            // console.log(pad.buttons.map(b => b.pressed), pad.axes);
+            break;
         }
     }
-    if (this.gamepads.length > 0) {
-        this.gamepadHandler(this.gamepads[0]);
-    }
 };
 
-GameBoyAdvanceKeypad.prototype.registerHandlers = function() {
+// --- ENREGISTREMENT DES ÉVÉNEMENTS ---
+GameBoyAdvanceKeypad.prototype.registerHandlers = function () {
     window.addEventListener("keydown", this.keyboardHandler.bind(this), true);
     window.addEventListener("keyup", this.keyboardHandler.bind(this), true);
 
     window.addEventListener("mousedown", this.mouseHandler.bind(this), true);
     window.addEventListener("mouseup", this.mouseHandler.bind(this), true);
-    window.addEventListener("contextmenu", function(e) {
-        e.preventDefault();
-    }, true);
+    window.addEventListener("contextmenu", e => e.preventDefault(), true);
 
-    window.addEventListener("gamepadconnected", this.gamepadConnectHandler.bind(this), true);
-    window.addEventListener("mozgamepadconnected", this.gamepadConnectHandler.bind(this), true);
-    window.addEventListener("webkitgamepadconnected", this.gamepadConnectHandler.bind(this), true);
-
-    window.addEventListener("gamepaddisconnected", this.gamepadDisconnectHandler.bind(this), true);
-    window.addEventListener("mozgamepaddisconnected", this.gamepadDisconnectHandler.bind(this), true);
-    window.addEventListener("webkitgamepaddisconnected", this.gamepadDisconnectHandler.bind(this), true);
+    window.addEventListener("gamepadconnected", e => this.gamepadConnectHandler(e.gamepad));
+    window.addEventListener("gamepaddisconnected", e => this.gamepadDisconnectHandler(e.gamepad));
 };
