@@ -58,20 +58,29 @@
                     gba.setBios(bios);
                 });
 
-                if (!gba.audio.context) {
-                    // Remove the sound box if sound isn't available
+                // MODIFICATION : On ne supprime le soundbox QUE si l'API Audio n'existe pas du tout,
+                // et non pas si elle est juste temporairement bloquée/suspendue par le navigateur.
+                if (!gba.audio || (!gba.audio.context && !window.AudioContext && !window.webkitAudioContext)) {
                     var soundbox = document.getElementById('sound');
-                    soundbox.parentElement.removeChild(soundbox);
+                    if (soundbox) soundbox.parentElement.removeChild(soundbox);
                 }
 
                 if (window.navigator.appName == 'Microsoft Internet Explorer') {
-                    // Remove the pixelated option if it doesn't work
                     var pixelatedBox = document.getElementById('pixelated');
                     pixelatedBox.parentElement.removeChild(pixelatedBox);
                 }
             } else {
                 var dead = document.getElementById('controls');
                 dead.parentElement.removeChild(dead);
+            }
+        }
+
+        // AJOUT : Débloquer l'AudioContext suite à l'interaction utilisateur
+        function resumeAudioContext() {
+            if (gba && gba.audio && gba.audio.context && gba.audio.context.state === 'suspended') {
+                gba.audio.context.resume().then(function() {
+                    console.log("AudioContext débloqué avec succès !");
+                });
             }
         }
 
@@ -105,6 +114,9 @@
         }
 
         function run(file) {
+            // MODIFICATION : On profite du clic sur le fichier pour réveiller le moteur audio
+            resumeAudioContext();
+
             var dead = document.getElementById('loader');
             dead.value = '';
             var load = document.getElementById('select');
@@ -301,7 +313,7 @@
     
     <section id="controls">
         <div id="preload">
-            <button class="bigbutton" id="select" onclick="document.getElementById('loader').click()">CHOISIR</button>
+            <button class="bigbutton" id="select" onclick="resumeAudioContext(); document.getElementById('loader').click()">CHOISIR</button>
             <input id="loader" type="file" accept=".gba" onchange="run(this.files[0]);">
             <button onclick="document.getElementById('saveloader').click()">Importer la partie sauvegardée</button>
             <input id="saveloader" type="file" onchange="uploadSavedataPending(this.files[0]);">
