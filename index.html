@@ -226,8 +226,8 @@
                 context.mozImageSmoothingEnabled = !pixelated;
             } else if (window.navigator.appName != 'Microsoft Internet Explorer') {
                 if (pixelated) {
-                    screen.setAttribute('width', '240');
-                    screen.setAttribute('height', '160');
+                    screen.setAttribute('width', '480');
+                    screen.setAttribute('height', '320');
                 } else {
                     screen.setAttribute('width', '480');
                     screen.setAttribute('height', '320');
@@ -303,14 +303,14 @@
         <div id="preload">
             <button class="bigbutton" id="select" onclick="document.getElementById('loader').click()">CHOISIR</button>
             <input id="loader" type="file" accept=".gba" onchange="run(this.files[0]);">
-            <button onclick="document.getElementById('saveloader').click()">Installer la partie sauvegardée</button>
+            <button onclick="document.getElementById('saveloader').click()">Importer la partie sauvegardée</button>
             <input id="saveloader" type="file" onchange="uploadSavedataPending(this.files[0]);">
         </div>
         
         <div id="ingame" class="hidden">
             <button id="pause" class="bigbutton" onclick="togglePause()">PAUSE</button>
             <button class="bigbutton" onclick="reset()">RÉINITIALISER</button>
-            <button onclick="gba.downloadSavedata()">Télécharger la partie sauvegardée</button>
+            <button onclick="gba.downloadSavedata()">Installer la partie sauvegardée</button>
             <button onclick="goFullscreen()">Plein écran</button>
             
             <label id="pixelated">
