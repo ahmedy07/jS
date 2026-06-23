@@ -108,7 +108,7 @@ function run(file) {
 	var dead = document.getElementById('loader');
 	dead.value = '';
 	var load = document.getElementById('select');
-	load.textContent = 'Loading...';
+	load.textContent = 'Chargement...';
 	load.removeAttribute('onclick');
 	var pause = document.getElementById('pause');
 	pause.textContent = "PAUSE";
@@ -122,9 +122,9 @@ function run(file) {
 			fadeOut('instructions', null, true);
 			gba.runStable();
 		} else {
-			load.textContent = 'FAILED';
+			load.textContent = 'ÉCHEC';
 			setTimeout(function() {
-				load.textContent = 'SELECT';
+				load.textContent = 'CHOISIR';
 				load.onclick = function() {
 					document.getElementById('loader').click();
 				}
@@ -137,7 +137,7 @@ function reset() {
 	gba.pause();
 	gba.reset();
 	var load = document.getElementById('select');
-	load.textContent = 'SELECT';
+	load.textContent = 'CHOISIR';
 	var crash = document.getElementById('crash');
 	if (crash) {
 		var context = gba.targetCanvas.getContext('2d');
@@ -174,7 +174,7 @@ function togglePause() {
 		} else {
 			gba.pause();
 		}
-		e.textContent = "UNPAUSE";
+		e.textContent = "REPRENDRE";
 	}
 }
 
@@ -288,26 +288,26 @@ document.addEventListener('webkitfullscreenchange', function() {
 <canvas id="screen" width="480" height="320"></canvas>
 <section id="controls">
 	<div id="preload">
-		<button class="bigbutton" id="select" onclick="document.getElementById('loader').click()">SELECT</button>
+		<button class="bigbutton" id="select" onclick="document.getElementById('loader').click()">CHOISIR</button>
 		<input id="loader" type="file" accept=".gba" onchange="run(this.files[0]);">
-		<button onclick="document.getElementById('saveloader').click()">Upload Savegame</button>
+		<button onclick="document.getElementById('saveloader').click()">Installer la partie sauvegardée</button>
 		<input id="saveloader" type="file" onchange="uploadSavedataPending(this.files[0]);">
 	</div>
 	<div id="ingame" class="hidden">
 		<button id="pause" class="bigbutton" onclick="togglePause()">PAUSE</button>
-		<button class="bigbutton" onclick="reset()">RESET</button>
-		<button onclick="gba.downloadSavedata()">Download Savegame</button>
-		<button onclick="screenshot()">Screenshot</button>
+		<button class="bigbutton" onclick="reset()">RÉINITIALISER</button>
+		<button onclick="gba.downloadSavedata()">Télécharger la partie sauvegardée</button>
+		<button onclick="screenshot()">Capture d'écran</button>
 		<label id="pixelated">
 			<input type="checkbox" onchange="setPixelated(this.checked)">
-			<p>Pixelated</p>
+			<p>Pixélisé</p>
 		</label>
 		<div id="sound">
 			<input type="checkbox" checked onchange="gba.audio.masterEnable = this.checked">
-			<p>Sound</p>
+			<p>Son</p>
 			<input type="range" min="0" max="1" value="1" step="any" onchange="setVolume(this.value)" oninput="setVolume(this.value)">
 		</div>
-		<p id="openDebug" onclick="enableDebug()">Debugger</p>
+		<p id="openDebug" onclick="enableDebug()">Débogueur</p>
 	</div>
 </section>
 </body>
