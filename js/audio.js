@@ -104,7 +104,7 @@ GameBoyAdvanceAudio.prototype.clear = function() {
 	this.channel3Length = 0;
 	this.channel3Timed = false;
 	this.channel3End = 0;
-	this.channel3Pointer =0;
+	this.channel3Pointer = 0;
 	this.channel3Sample = 0;
 
 	this.cpuFrequency = this.core.irq.FREQUENCY;
@@ -295,14 +295,14 @@ GameBoyAdvanceAudio.prototype.writeSoundControlHi = function(value) {
 
 	this.enableRightChannelA = value & 0x0100;
 	this.enableLeftChannelA = value & 0x0200;
-	this.enableChannelA  = value & 0x0300;
+	this.enableChannelA = value & 0x0300;
 	this.soundTimerA = value & 0x0400;
 	if (value & 0x0800) {
 		this.fifoA = [];
 	}
 	this.enableRightChannelB = value & 0x1000;
 	this.enableLeftChannelB = value & 0x2000;
-	this.enableChannelB  = value & 0x3000;
+	this.enableChannelB = value & 0x3000;
 	this.soundTimerB = value & 0x4000;
 	if (value & 0x8000) {
 		this.fifoB = [];
@@ -717,9 +717,6 @@ GameBoyAdvanceAudio.prototype.sample = function() {
 	}
 	this.samplePointer = (samplePointer + 1) & this.sampleMask;
 };
-if (this.context.state === 'suspended') {
-    this.context.resume();
-}
 
 GameBoyAdvanceAudio.prototype.audioProcess = function(audioProcessingEvent) {
 	var left = audioProcessingEvent.outputBuffer.getChannelData(0);
