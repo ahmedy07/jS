@@ -183,6 +183,18 @@ function screenshot() {
 	window.open(canvas.toDataURL('image/png'), 'screenshot');
 }
 
+// Nouvelle fonction pour forcer le plein écran sur l'affichage du jeu
+function goFullscreen() {
+	var canvas = document.getElementById('screen');
+	if (canvas.requestFullscreen) {
+		canvas.requestFullscreen();
+	} else if (canvas.webkitRequestFullscreen) { /* Safari / Chrome anciens */
+		canvas.webkitRequestFullscreen();
+	} else if (canvas.msRequestFullscreen) { /* IE11 */
+		canvas.msRequestFullscreen();
+	}
+}
+
 function lcdFade(context, target, callback) {
 	var i = 0;
 	var drawInterval = setInterval(function() {
@@ -230,9 +242,10 @@ function setPixelated(pixelated) {
 			// Ugly hack! Ew!
 			if (pixelated) {
 				screen.style.marginTop = '0';
-				screen.style.marginBottom = '-325px';
+				screen.style.removeProperty('margin-bottom');
 			} else {
-				delete screen.style;
+				screen.style.removeProperty('margin-top');
+				screen.style.removeProperty('margin-bottom');
 			}
 		}
 	}
@@ -270,18 +283,28 @@ function enableDebug() {
 	}
 }
 
-document.addEventListener('webkitfullscreenchange', function() {
+// Gestion automatique du redimensionnement quand on passe en plein écran
+function handleFullscreenChange() {
 	var canvas = document.getElementById('screen');
-	if (document.webkitIsFullScreen) {
-		canvas.setAttribute('height', document.body.offsetHeight);
-		canvas.setAttribute('width', document.body.offsetHeight / 2 * 3);
-		canvas.setAttribute('style', 'margin: 0');
+	if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+		// En plein écran, on adapte la taille au maximum disponible de l'affichage
+		canvas.setAttribute('height', window.innerHeight);
+		canvas.setAttribute('width', (window.innerHeight / 2) * 3); // Ratio GBA (3:2)
+		canvas.style.margin = "0 auto";
+		canvas.style.display = "block";
 	} else {
+		// Retour à la taille de base de ton interface actuelle
 		canvas.setAttribute('height', 320);
 		canvas.setAttribute('width', 480);
-		canvas.removeAttribute('style');
+		canvas.style.removeProperty('margin');
+		canvas.style.removeProperty('display');
 	}
-}, false);
+}
+
+document.addEventListener('fullscreenchange', handleFullscreenChange, false);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange, false);
+document.addEventListener('mozfullscreenchange', handleFullscreenChange, false);
+document.addEventListener('MSFullscreenChange', handleFullscreenChange, false);
 </script>
 </head>
 <body>
@@ -298,6 +321,7 @@ document.addEventListener('webkitfullscreenchange', function() {
 		<button class="bigbutton" onclick="reset()">RÉINITIALISER</button>
 		<button onclick="gba.downloadSavedata()">Télécharger la partie sauvegardée</button>
 		<button onclick="screenshot()">Capture d'écran</button>
+		<button onclick="goFullscreen()">Plein écran</button>
 		<label id="pixelated">
 			<input type="checkbox" onchange="setPixelated(this.checked)">
 			<p>Pixélisé</p>
