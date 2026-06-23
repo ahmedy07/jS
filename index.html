@@ -58,9 +58,8 @@
                     gba.setBios(bios);
                 });
 
-                // MODIFICATION : On ne supprime le soundbox QUE si l'API Audio n'existe pas du tout,
-                // et non pas si elle est juste temporairement bloquée/suspendue par le navigateur.
-                if (!gba.audio || (!gba.audio.context && !window.AudioContext && !window.webkitAudioContext)) {
+                // On s'assure que le panneau de contrôle audio reste visible pour pouvoir interagir avec
+                if (!gba.audio) {
                     var soundbox = document.getElementById('sound');
                     if (soundbox) soundbox.parentElement.removeChild(soundbox);
                 }
@@ -75,12 +74,32 @@
             }
         }
 
-        // AJOUT : Débloquer l'AudioContext suite à l'interaction utilisateur
-        function resumeAudioContext() {
-            if (gba && gba.audio && gba.audio.context && gba.audio.context.state === 'suspended') {
+        // CORRECTIF AUDIO RADICAL : Recréation/Reprise forcée du système AudioContext au moment du run
+        function forceAudioUnblock() {
+            if (!gba || !gba.audio) return;
+
+            // 1. Si le contexte n'existe pas ou a été coupé, on le réinitialise proprement aux normes actuelles
+            if (!gba.audio.context) {
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (window.AudioContext) {
+                    gba.audio.context = new AudioContext();
+                }
+            }
+
+            // 2. Si le contexte est suspendu par le navigateur, on le force à démarrer
+            if (gba.audio.context && gba.audio.context.state === 'suspended') {
                 gba.audio.context.resume().then(function() {
-                    console.log("AudioContext débloqué avec succès !");
+                    console.log("AudioContext forcé et activé.");
                 });
+            }
+
+            // 3. Réalignement des paramètres du mixeur de l'émulateur
+            if (gba.audio.context) {
+                gba.audio.masterEnable = true;
+                // Force une valeur par défaut si masterVolume n'est pas calibré
+                if (gba.audio.masterVolume === undefined || gba.audio.masterVolume === 0) {
+                    gba.audio.masterVolume = 1; 
+                }
             }
         }
 
@@ -114,8 +133,8 @@
         }
 
         function run(file) {
-            // MODIFICATION : On profite du clic sur le fichier pour réveiller le moteur audio
-            resumeAudioContext();
+            // Déblocage de sécurité au moment de la sélection du fichier
+            forceAudioUnblock();
 
             var dead = document.getElementById('loader');
             dead.value = '';
@@ -132,6 +151,9 @@
                     runCommands = [];
                     fadeOut('preload', 'ingame');
                     fadeOut('instructions', null, true);
+                    
+                    // Deuxième déblocage juste avant l'exécution du code de la ROM
+                    forceAudioUnblock();
                     gba.runStable();
                 } else {
                     load.textContent = 'ÉCHEC';
@@ -177,6 +199,8 @@
                 if (debug && debug.gbaCon) {
                     debug.gbaCon.run();
                 } else {
+                    // Réveiller l'audio également lors de la sortie de pause
+                    forceAudioUnblock();
                     gba.runStable();
                 }
                 e.textContent = "PAUSE";
@@ -313,7 +337,7 @@
     
     <section id="controls">
         <div id="preload">
-            <button class="bigbutton" id="select" onclick="resumeAudioContext(); document.getElementById('loader').click()">CHOISIR</button>
+            <button class="bigbutton" id="select" onclick="forceAudioUnblock(); document.getElementById('loader').click()">CHOISIR</button>
             <input id="loader" type="file" accept=".gba" onchange="run(this.files[0]);">
             <button onclick="document.getElementById('saveloader').click()">Importer la partie sauvegardée</button>
             <input id="saveloader" type="file" onchange="uploadSavedataPending(this.files[0]);">
