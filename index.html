@@ -1,159 +1,433 @@
-function GameBoyAdvanceKeypad() {
-    this.KEYCODE_LEFT = 37;
-    this.KEYCODE_UP = 38;
-    this.KEYCODE_RIGHT = 39;
-    this.KEYCODE_DOWN = 40;
-    this.KEYCODE_START = 13;
-    this.KEYCODE_SELECT = 220;
-    this.KEYCODE_A = 90;
-    this.KEYCODE_B = 88;
-    this.KEYCODE_L = 65;
-    this.KEYCODE_R = 83;
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>ahmed.jS</title>
+    <link rel="stylesheet" href="resources/main.css">
+    <script src="js/util.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/arm.js"></script>
+    <script src="js/thumb.js"></script>
+    <script src="js/mmu.js"></script>
+    <script src="js/io.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/video.js"></script>
+    <script src="js/video/proxy.js"></script>
+    <script src="js/video/software.js"></script>
+    <script src="js/irq.js"></script>
+    <script src="js/keypad.js"></script>
+    <script src="js/sio.js"></script>
+    <script src="js/savedata.js"></script>
+    <script src="js/gpio.js"></script>
+    <script src="js/gba.js"></script>
+    <script src="resources/xhr.js"></script>
 
-    this.A = 0;
-    this.B = 1;
-    this.SELECT = 2;
-    this.START = 3;
-    this.RIGHT = 4;
-    this.LEFT = 5;
-    this.UP = 6;
-    this.DOWN = 7;
-    this.R = 8;
-    this.L = 9;
+    <script>
+        var gba;
+        var runCommands = [];
+        var debug = null;
 
-    this.currentDown = 0x03FF;
-    this.eatInput = false;
-    this.gamepads = [];
-}
+        try {
+            gba = new GameBoyAdvance();
+            gba.keypad.eatInput = true;
+            gba.setLogger(function(level, error) {
+                console.log(error);
+                gba.pause();
+                var screen = document.getElementById('screen');
+                if (screen.getAttribute('class') == 'dead') {
+                    console.log('We appear to have crashed multiple times without reseting.');
+                    return;
+                }
+                var crash = document.createElement('img');
+                crash.setAttribute('id', 'crash');
+                crash.setAttribute('src', 'resources/crash.png');
+                screen.parentElement.insertBefore(crash, screen);
+                screen.setAttribute('class', 'dead');
+            });
 
-// --- GESTION CLAVIER ---
-GameBoyAdvanceKeypad.prototype.keyboardHandler = function (e) {
-    var toggle = 0;
-    switch (e.keyCode) {
-        case this.KEYCODE_START: toggle = this.START; break;
-        case this.KEYCODE_SELECT: toggle = this.SELECT; break;
-        case this.KEYCODE_A: toggle = this.A; break;
-        case this.KEYCODE_B: toggle = this.B; break;
-        case this.KEYCODE_L: toggle = this.L; break;
-        case this.KEYCODE_R: toggle = this.R; break;
-        case this.KEYCODE_UP: toggle = this.UP; break;
-        case this.KEYCODE_RIGHT: toggle = this.RIGHT; break;
-        case this.KEYCODE_DOWN: toggle = this.DOWN; break;
-        case this.KEYCODE_LEFT: toggle = this.LEFT; break;
-        default: return;
-    }
+            // ================================================================
+            // PATCH CRITIQUE DIRECTEMENT ON L'AUDIO DE GBA.JS
+            // ================================================================
+            if (gba && gba.audio) {
+                
+                // 1. Correction de la fonction clear() qui coupait le son définitivement au lancement
+                var originalClear = gba.audio.clear;
+                gba.audio.clear = function() {
+                    originalClear.apply(this, arguments);
+                    // Rétablir la connexion coupée par clear() si le contexte existe
+                    if (this.context && this.jsAudio) {
+                        try {
+                            this.jsAudio.connect(this.context.destination);
+                        } catch (e) {}
+                    }
+                };
 
-    toggle = 1 << toggle;
-    if (e.type === "keydown") {
-        this.currentDown &= ~toggle;
-    } else {
-        this.currentDown |= toggle;
-    }
+                // 2. Réécriture propre de writeSoundControlHi pour contourner le bug des variables de canaux
+                gba.audio.writeSoundControlHi = function(value) {
+                    switch (value & 0x0003) {
+                        case 0: this.soundRatio = 0.25; break;
+                        case 1: this.soundRatio = 0.50; break;
+                        case 2: this.soundRatio = 1; break;
+                    }
+                    this.ratioChannelA = (((value & 0x0004) >> 2) + 1) * 0.5;
+                    this.ratioChannelB = (((value & 0x0008) >> 3) + 1) * 0.5;
 
-    if (this.eatInput) e.preventDefault();
-};
+                    this.enableRightChannelA = value & 0x0100;
+                    this.enableLeftChannelA = value & 0x0200;
+                    this.enableChannelA = value & 0x0300;
+                    this.soundTimerA = value & 0x0400;
+                    if (value & 0x0800) { this.fifoA = []; }
+                    
+                    this.enableRightChannelB = value & 0x1000;
+                    this.enableLeftChannelB = value & 0x2000;
+                    this.enableChannelB = value & 0x3000;
+                    this.soundTimerB = value & 0x4000;
+                    if (value & 0x8000) { this.fifoB = []; }
+                };
+            }
 
-// --- GESTION SOURIS (A = clic gauche, B = clic droit) ---
-GameBoyAdvanceKeypad.prototype.mouseHandler = function (e) {
-    let toggle = null;
-
-    if (e.type === "mousedown") {
-        if (e.button === 0) { 
-            toggle = 1 << this.A;
-            this.currentDown &= ~toggle;
-        } else if (e.button === 2) { 
-            toggle = 1 << this.B;
-            this.currentDown &= ~toggle;
+        } catch (exception) {
+            console.error("Erreur d'initialisation de la GBA :", exception);
+            gba = null;
         }
-    } else if (e.type === "mouseup") {
-        if (e.button === 0) {
-            toggle = 1 << this.A;
-            this.currentDown |= toggle;
-        } else if (e.button === 2) {
-            toggle = 1 << this.B;
-            this.currentDown |= toggle;
+
+        // Réveil forcé de l'AudioContext (exigé par les navigateurs modernes)
+        function forceAudioUnblock() {
+            if (gba && gba.audio && gba.audio.context) {
+                if (gba.audio.context.state === 'suspended') {
+                    gba.audio.context.resume();
+                }
+                // Reconnecter le nœud audio s'il s'est détaché
+                if (gba.audio.jsAudio && gba.audio.context.destination) {
+                    try {
+                        gba.audio.jsAudio.connect(gba.audio.context.destination);
+                    } catch(e) {}
+                }
+                gba.audio.masterEnable = true;
+                gba.audio.enabled = true;
+            }
         }
-    }
 
-    if (this.eatInput && toggle !== null) e.preventDefault();
-};
+        window.onload = function() {
+            if (gba && FileReader) {
+                var canvas = document.getElementById('screen');
+                gba.setCanvas(canvas);
+                gba.logLevel = gba.LOG_ERROR;
 
-// --- CONFIGURATION MANETTE XBOX ---
-GameBoyAdvanceKeypad.prototype.gamepadHandler = function (gamepad) {
-    let value = 0;
+                loadRom('resources/bios.bin', function(bios) {
+                    gba.setBios(bios);
+                });
 
-    // --- Sticks Analogiques (Zone morte à 0.5)
-    const AXIS_THRESHOLD = 0.5;
-    const axisX = gamepad.axes[0]; // Stick Gauche - Horizontal
-    const axisY = gamepad.axes[1]; // Stick Gauche - Vertical
+                if (!gba.audio) {
+                    var soundbox = document.getElementById('sound');
+                    if (soundbox) soundbox.parentElement.removeChild(soundbox);
+                }
 
-    if (axisX < -AXIS_THRESHOLD) value |= 1 << this.LEFT;
-    if (axisX > AXIS_THRESHOLD) value |= 1 << this.RIGHT;
-    if (axisY < -AXIS_THRESHOLD) value |= 1 << this.UP;
-    if (axisY > AXIS_THRESHOLD) value |= 1 << this.DOWN;
+                if (window.navigator.appName == 'Microsoft Internet Explorer') {
+                    var pixelatedBox = document.getElementById('pixelated');
+                    pixelatedBox.parentElement.removeChild(pixelatedBox);
+                }
+            } else {
+                var dead = document.getElementById('controls');
+                dead.parentElement.removeChild(dead);
+            }
+        }
 
-    // --- Croix Directionnelle (D-Pad)
-    if (gamepad.buttons[12]?.pressed) value |= 1 << this.UP;     // Haut
-    if (gamepad.buttons[13]?.pressed) value |= 1 << this.DOWN;   // Bas
-    if (gamepad.buttons[14]?.pressed) value |= 1 << this.LEFT;   // Gauche
-    if (gamepad.buttons[15]?.pressed) value |= 1 << this.RIGHT;  // Droite
+        function fadeOut(id, nextId, kill) {
+            var e = document.getElementById(id);
+            var e2 = document.getElementById(nextId);
+            if (!e) return;
+            
+            var removeSelf = function() {
+                if (kill) {
+                    e.parentElement.removeChild(e);
+                } else {
+                    e.setAttribute('class', 'dead');
+                    e.removeEventListener('webkitTransitionEnd', removeSelf);
+                    e.removeEventListener('oTransitionEnd', removeSelf);
+                    e.removeEventListener('transitionend', removeSelf);
+                }
+                if (e2) {
+                    e2.setAttribute('class', 'hidden');
+                    setTimeout(function() {
+                        e2.removeAttribute('class');
+                    }, 0);
+                }
+            }
 
-    // --- Boutons d'action Xbox
-    if (gamepad.buttons[0]?.pressed) value |= 1 << this.B; // Bouton A (Xbox) -> GBA B
-    if (gamepad.buttons[1]?.pressed) value |= 1 << this.A; // Bouton B (Xbox) -> GBA A
-    if (gamepad.buttons[2]?.pressed) value |= 1 << this.B; // Bouton X (Xbox) -> GBA B (Doublon confort)
+            e.addEventListener('webkitTransitionEnd', removeSelf, false);
+            e.addEventListener('oTransitionEnd', removeSelf, false);
+            e.addEventListener('transitionend', removeSelf, false);
+            e.setAttribute('class', 'hidden');
+        }
+
+        function run(file) {
+            forceAudioUnblock();
+
+            var dead = document.getElementById('loader');
+            dead.value = '';
+            var load = document.getElementById('select');
+            load.textContent = 'Chargement...';
+            load.removeAttribute('onclick');
+            var pause = document.getElementById('pause');
+            pause.textContent = "PAUSE";
+            gba.loadRomFromFile(file, function(result) {
+                if (result) {
+                    for (var i = 0; i < runCommands.length; ++i) {
+                        runCommands[i]();
+                    }
+                    runCommands = [];
+                    fadeOut('preload', 'ingame');
+                    fadeOut('instructions', null, true);
+                    
+                    forceAudioUnblock();
+                    gba.runStable();
+                } else {
+                    load.textContent = 'ÉCHEC';
+                    setTimeout(function() {
+                        load.textContent = 'CHOISIR';
+                        load.onclick = function() {
+                            document.getElementById('loader').click();
+                        }
+                    }, 3000);
+                }
+            });
+        }
+
+        function reset() {
+            gba.pause();
+            gba.reset();
+            var load = document.getElementById('select');
+            load.textContent = 'CHOISIR';
+            var crash = document.getElementById('crash');
+            if (crash) {
+                var context = gba.targetCanvas.getContext('2d');
+                context.clearRect(0, 0, 480, 320);
+                gba.video.drawCallback();
+                crash.parentElement.removeChild(crash);
+                var canvas = document.getElementById('screen');
+                canvas.removeAttribute('class');
+            } else {
+                lcdFade(gba.context, gba.targetCanvas.getContext('2d'), gba.video.drawCallback);
+            }
+            load.onclick = function() {
+                document.getElementById('loader').click();
+            }
+            fadeOut('ingame', 'preload');
+        }
+
+        function uploadSavedataPending(file) {
+            runCommands.push(function() { gba.loadSavedataFromFile(file) });
+        }
+
+        function togglePause() {
+            var e = document.getElementById('pause');
+            if (gba.paused) {
+                if (debug && debug.gbaCon) {
+                    debug.gbaCon.run();
+                } else {
+                    forceAudioUnblock();
+                    gba.runStable();
+                }
+                e.textContent = "PAUSE";
+            } else {
+                if (debug && debug.gbaCon) {
+                    debug.gbaCon.pause();
+                } else {
+                    gba.pause();
+                }
+                e.textContent = "REPRENDRE";
+            }
+        }
+
+        function goFullscreen() {
+            var canvas = document.getElementById('screen');
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) {
+                canvas.webkitRequestFullscreen();
+            } else if (canvas.msRequestFullscreen) {
+                canvas.msRequestFullscreen();
+            }
+        }
+
+        function lcdFade(context, target, callback) {
+            var i = 0;
+            var drawInterval = setInterval(function() {
+                i++;
+                var pixelData = context.getImageData(0, 0, 240, 160);
+                for (var y = 0; y < 160; ++y) {
+                    for (var x = 0; x < 240; ++x) {
+                        var xDiff = Math.abs(x - 120);
+                        var yDiff = Math.abs(y - 80) * 0.8;
+                        var xFactor = (120 - i - xDiff) / 120;
+                        var yFactor = (80 - i - ((y & 1) * 10) - yDiff + Math.pow(xDiff, 1 / 2)) / 80;
+                        pixelData.data[(x + y * 240) * 4 + 3] *= Math.pow(xFactor, 1 / 3) * Math.pow(yFactor, 1 / 2);
+                    }
+                }
+                context.putImageData(pixelData, 0, 0);
+                target.clearRect(0, 0, 480, 320);
+                if (i > 40) {
+                    clearInterval(drawInterval);
+                } else {
+                    callback();
+                }
+            }, 50);
+        }
+
+        function setVolume(value) {
+            if (gba && gba.audio) {
+                gba.audio.masterVolume = Math.pow(2, value) - 1;
+            }
+        }
+
+        function setPixelated(pixelated) {
+            var screen = document.getElementById('screen');
+            var context = screen.getContext('2d');
+            if (context.webkitImageSmoothingEnabled) {
+                context.webkitImageSmoothingEnabled = !pixelated;
+            } else if (context.mozImageSmoothingEnabled) {
+                context.mozImageSmoothingEnabled = !pixelated;
+            } else if (window.navigator.appName != 'Microsoft Internet Explorer') {
+                screen.setAttribute('width', '480');
+                screen.setAttribute('height', '320');
+            }
+        }
+
+        document.addEventListener('fullscreenchange', function() {
+            var canvas = document.getElementById('screen');
+            if (document.fullscreenElement) {
+                canvas.setAttribute('height', window.innerHeight);
+                canvas.setAttribute('width', (window.innerHeight / 2) * 3);
+            } else {
+                canvas.setAttribute('height', 320);
+                canvas.setAttribute('width', 480);
+            }
+        }, false);
+
+        // ================================================================
+        // GESTIONNAIRE INVISIBLE DE MANETTE (GAMEPAD API)
+        // ================================================================
+        (function() {
+            var buttonStates = {};
+
+            // Correspondance des boutons standards (Xbox, PlayStation, etc.)
+            var MAPPING = {
+                0: 'A',        // Bouton Sud (A / X) -> GBA A
+                1: 'B',        // Bouton Est (B / Rond) -> GBA B
+                4: 'L',        // Gâchette Haute Gauche (LB / L1) -> GBA L
+                5: 'R',        // Gâchette Haute Droite (RB / R1) -> GBA R
+                8: 'SELECT',   // Bouton Select / Share -> GBA Select
+                9: 'START',    // Bouton Start / Options -> GBA Start
+                12: 'UP',      // Croix directionnelle Haut
+                13: 'DOWN',    // Croix directionnelle Bas
+                14: 'LEFT',    // Croix directionnelle Gauche
+                15: 'RIGHT'    // Croix directionnelle Droite
+            };
+
+            function updateGamepad() {
+                var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                var gp = null;
+
+                // On prend la première manette disponible
+                for (var i = 0; i < gamepads.length; i++) {
+                    if (gamepads[i]) { gp = gamepads[i]; break; }
+                }
+
+                if (!gp || !gba || !gba.keypad) {
+                    requestAnimationFrame(updateGamepad);
+                    return;
+                }
+
+                // 1. Scan des boutons et de la croix directionnelle (D-Pad)
+                for (var index in MAPPING) {
+                    var gbaKey = MAPPING[index];
+                    var btn = gp.buttons[index];
+                    var isPressed = btn ? btn.pressed : false;
+
+                    if (isPressed !== buttonStates[gbaKey]) {
+                        buttonStates[gbaKey] = isPressed;
+                        if (isPressed) {
+                            gba.keypad.keydown(gba.keypad[gbaKey]);
+                        } else {
+                            gba.keypad.keyup(gba.keypad[gbaKey]);
+                        }
+                    }
+                }
+
+                // 2. Scan du stick analogique gauche (au cas où le joueur préfère le stick au D-pad)
+                if (gp.axes && gp.axes.length >= 2) {
+                    var axisX = gp.axes[0]; // -1 Gauche, 1 Droite
+                    var axisY = gp.axes[1]; // -1 Haut, 1 Bas
+                    var threshold = 0.5;   // Sensibilité de la zone morte
+
+                    // Axe X (Gauche / Droite)
+                    var leftPressed = axisX < -threshold;
+                    if (leftPressed !== buttonStates['LEFT_STICK']) {
+                        buttonStates['LEFT_STICK'] = leftPressed;
+                        if (leftPressed) gba.keypad.keydown(gba.keypad.LEFT);
+                        else gba.keypad.keyup(gba.keypad.LEFT);
+                    }
+
+                    var rightPressed = axisX > threshold;
+                    if (rightPressed !== buttonStates['RIGHT_STICK']) {
+                        buttonStates['RIGHT_STICK'] = rightPressed;
+                        if (rightPressed) gba.keypad.keydown(gba.keypad.RIGHT);
+                        else gba.keypad.keyup(gba.keypad.RIGHT);
+                    }
+
+                    // Axe Y (Haut / Bas)
+                    var upPressed = axisY < -threshold;
+                    if (upPressed !== buttonStates['UP_STICK']) {
+                        buttonStates['UP_STICK'] = upPressed;
+                        if (upPressed) gba.keypad.keydown(gba.keypad.UP);
+                        else gba.keypad.keyup(gba.keypad.UP);
+                    }
+
+                    var downPressed = axisY > threshold;
+                    if (downPressed !== buttonStates['DOWN_STICK']) {
+                        buttonStates['DOWN_STICK'] = downPressed;
+                        if (downPressed) gba.keypad.keydown(gba.keypad.DOWN);
+                        else gba.keypad.keyup(gba.keypad.DOWN);
+                    }
+                }
+
+                requestAnimationFrame(updateGamepad);
+            }
+
+            // Lance la boucle d'écoute en tâche de fond
+            requestAnimationFrame(updateGamepad);
+        })();
+    </script>
+</head>
+<body>
+    <canvas id="screen" width="480" height="320"></canvas>
     
-    // --- Gâchettes (L et R)
-    if (gamepad.buttons[4]?.pressed) value |= 1 << this.L; // LB (Xbox) -> GBA L
-    if (gamepad.buttons[5]?.pressed) value |= 1 << this.R; // RB (Xbox) -> GBA R
-
-    // --- Menus (Start et Select)
-    if (gamepad.buttons[9]?.pressed) value |= 1 << this.START;  // Bouton Menu/Start (Xbox)
-    if (gamepad.buttons[8]?.pressed) value |= 1 << this.SELECT; // Bouton Affichage/Back (Xbox)
-
-    // --- Synchronisation directe avec le cœur de l'émulateur
-    this.currentDown = ~value & 0x3FF;
-};
-
-// --- GESTION CONNEXION / DÉCONNEXION ---
-GameBoyAdvanceKeypad.prototype.gamepadConnectHandler = function (gamepad) {
-    console.log("🎮 Manette Xbox connectée :", gamepad.id);
-    this.gamepads.push(gamepad);
-};
-
-GameBoyAdvanceKeypad.prototype.gamepadDisconnectHandler = function (gamepad) {
-    console.log("❌ Manette Xbox déconnectée :", gamepad.id);
-    this.gamepads = this.gamepads.filter(g => g !== gamepad);
-};
-
-// --- POLLING DE LA MANETTE ---
-GameBoyAdvanceKeypad.prototype.pollGamepads = function () {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const pad of pads) {
-        if (pad) {
-            this.gamepadHandler(pad);
-            break;
-        }
-    }
-};
-
-// --- ENREGISTREMENT DES ÉVÉNEMENTS ---
-GameBoyAdvanceKeypad.prototype.registerHandlers = function () {
-    window.addEventListener("keydown", this.keyboardHandler.bind(this), true);
-    window.addEventListener("keyup", this.keyboardHandler.bind(this), true);
-
-    window.addEventListener("mousedown", this.mouseHandler.bind(this), true);
-    window.addEventListener("mouseup", this.mouseHandler.bind(this), true);
-    window.addEventListener("contextmenu", e => e.preventDefault(), true);
-
-    window.addEventListener("gamepadconnected", e => this.gamepadConnectHandler(e.gamepad));
-    window.addEventListener("gamepaddisconnected", e => this.gamepadDisconnectHandler(e.gamepad));
-
-    // Lancement de la boucle invisible en arrière-plan
-    const self = this;
-    function loop() {
-        self.pollGamepads();
-        requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-};
+    <section id="controls">
+        <div id="preload">
+            <button class="bigbutton" id="select" onclick="forceAudioUnblock(); document.getElementById('loader').click()">CHOISIR</button>
+            <input id="loader" type="file" accept=".gba" onchange="run(this.files[0]);">
+            <button onclick="document.getElementById('saveloader').click()">Importer une partie sauvegardée</button>
+            <input id="saveloader" type="file" onchange="uploadSavedataPending(this.files[0]);">
+        </div>
+        
+        <div id="ingame" class="hidden">
+            <button id="pause" class="bigbutton" onclick="togglePause()">PAUSE</button>
+            <button class="bigbutton" onclick="reset()">RÉINITIALISER</button>
+            <button onclick="gba.downloadSavedata()">Installer la partie sauvegardée</button>
+            <button onclick="goFullscreen()">Plein écran</button>
+            
+            <label id="pixelated">
+                <input type="checkbox" onchange="setPixelated(this.checked)">
+                <p>Pixélisé</p>
+            </label>
+            
+            <div id="sound">
+                <input type="checkbox" checked onchange="forceAudioUnblock(); gba.audio.masterEnable = this.checked">
+                <p>Son</p>
+                <input type="range" min="0" max="1" value="0.5" step="any" onchange="setVolume(this.value)" oninput="setVolume(this.value)">
+            </div>
+        </div>
+    </section>
+</body>
+</html>
