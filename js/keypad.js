@@ -58,10 +58,10 @@ GameBoyAdvanceKeypad.prototype.mouseHandler = function (e) {
     let toggle = null;
 
     if (e.type === "mousedown") {
-        if (e.button === 0) { // clic gauche
+        if (e.button === 0) { 
             toggle = 1 << this.A;
             this.currentDown &= ~toggle;
-        } else if (e.button === 2) { // clic droit
+        } else if (e.button === 2) { 
             toggle = 1 << this.B;
             this.currentDown &= ~toggle;
         }
@@ -78,59 +78,60 @@ GameBoyAdvanceKeypad.prototype.mouseHandler = function (e) {
     if (this.eatInput && toggle !== null) e.preventDefault();
 };
 
-// --- GESTION MANETTE XBOX ---
+// --- CONFIGURATION MANETTE XBOX ---
 GameBoyAdvanceKeypad.prototype.gamepadHandler = function (gamepad) {
     let value = 0;
 
-    // --- Stick gauche (axes analogiques)
+    // --- Sticks Analogiques (Zone morte à 0.5)
     const AXIS_THRESHOLD = 0.5;
-    const axisX = gamepad.axes[0];
-    const axisY = gamepad.axes[1];
+    const axisX = gamepad.axes[0]; // Stick Gauche - Horizontal
+    const axisY = gamepad.axes[1]; // Stick Gauche - Vertical
 
     if (axisX < -AXIS_THRESHOLD) value |= 1 << this.LEFT;
     if (axisX > AXIS_THRESHOLD) value |= 1 << this.RIGHT;
     if (axisY < -AXIS_THRESHOLD) value |= 1 << this.UP;
     if (axisY > AXIS_THRESHOLD) value |= 1 << this.DOWN;
 
-    // --- Croix directionnelle (D-Pad)
-    if (gamepad.buttons[14]?.pressed) value |= 1 << this.LEFT;
-    if (gamepad.buttons[15]?.pressed) value |= 1 << this.RIGHT;
-    if (gamepad.buttons[12]?.pressed) value |= 1 << this.UP;
-    if (gamepad.buttons[13]?.pressed) value |= 1 << this.DOWN;
+    // --- Croix Directionnelle (D-Pad)
+    if (gamepad.buttons[12]?.pressed) value |= 1 << this.UP;     // Haut
+    if (gamepad.buttons[13]?.pressed) value |= 1 << this.DOWN;   // Bas
+    if (gamepad.buttons[14]?.pressed) value |= 1 << this.LEFT;   // Gauche
+    if (gamepad.buttons[15]?.pressed) value |= 1 << this.RIGHT;  // Droite
 
-    // --- Boutons principaux Xbox
-    if (gamepad.buttons[0]?.pressed) value |= 1 << this.B; // A (Xbox) → B (GBA)
-    if (gamepad.buttons[1]?.pressed) value |= 1 << this.A; // B (Xbox) → A (GBA)
-    if (gamepad.buttons[4]?.pressed) value |= 1 << this.L; // LB
-    if (gamepad.buttons[5]?.pressed) value |= 1 << this.R; // RB
+    // --- Boutons d'action Xbox
+    if (gamepad.buttons[0]?.pressed) value |= 1 << this.B; // Bouton A (Xbox) -> GBA B
+    if (gamepad.buttons[1]?.pressed) value |= 1 << this.A; // Bouton B (Xbox) -> GBA A
+    if (gamepad.buttons[2]?.pressed) value |= 1 << this.B; // Bouton X (Xbox) -> GBA B (Doublon confort)
+    
+    // --- Gâchettes (L et R)
+    if (gamepad.buttons[4]?.pressed) value |= 1 << this.L; // LB (Xbox) -> GBA L
+    if (gamepad.buttons[5]?.pressed) value |= 1 << this.R; // RB (Xbox) -> GBA R
 
-    // --- Start / Select
-    if (gamepad.buttons[9]?.pressed) value |= 1 << this.START;  // Start
-    if (gamepad.buttons[8]?.pressed) value |= 1 << this.SELECT; // Back
+    // --- Menus (Start et Select)
+    if (gamepad.buttons[9]?.pressed) value |= 1 << this.START;  // Bouton Menu/Start (Xbox)
+    if (gamepad.buttons[8]?.pressed) value |= 1 << this.SELECT; // Bouton Affichage/Back (Xbox)
 
-    // --- Appliquer l'état
+    // --- Synchronisation directe avec le cœur de l'émulateur
     this.currentDown = ~value & 0x3FF;
 };
 
 // --- GESTION CONNEXION / DÉCONNEXION ---
 GameBoyAdvanceKeypad.prototype.gamepadConnectHandler = function (gamepad) {
-    console.log("🎮 Manette connectée :", gamepad.id);
+    console.log("🎮 Manette Xbox connectée :", gamepad.id);
     this.gamepads.push(gamepad);
 };
 
 GameBoyAdvanceKeypad.prototype.gamepadDisconnectHandler = function (gamepad) {
-    console.log("❌ Manette déconnectée :", gamepad.id);
+    console.log("❌ Manette Xbox déconnectée :", gamepad.id);
     this.gamepads = this.gamepads.filter(g => g !== gamepad);
 };
 
-// --- POLLING MANETTE ---
+// --- POLLING DE LA MANETTE ---
 GameBoyAdvanceKeypad.prototype.pollGamepads = function () {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const pad of pads) {
         if (pad) {
             this.gamepadHandler(pad);
-            // Debug (tu peux activer pour voir les boutons)
-            // console.log(pad.buttons.map(b => b.pressed), pad.axes);
             break;
         }
     }
@@ -147,4 +148,12 @@ GameBoyAdvanceKeypad.prototype.registerHandlers = function () {
 
     window.addEventListener("gamepadconnected", e => this.gamepadConnectHandler(e.gamepad));
     window.addEventListener("gamepaddisconnected", e => this.gamepadDisconnectHandler(e.gamepad));
+
+    // Lancement de la boucle invisible en arrière-plan
+    const self = this;
+    function loop() {
+        self.pollGamepads();
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
 };
