@@ -26,6 +26,19 @@ function GameBoyAdvanceKeypad() {
     this.gamepads = [];
 }
 
+// --- FONCTIONS DE SECOURS APPELÉES PAR TON CODE HTML ---
+GameBoyAdvanceKeypad.prototype.keydown = function (key) {
+    if (key !== undefined && key !== null) {
+        this.currentDown &= ~(1 << key);
+    }
+};
+
+GameBoyAdvanceKeypad.prototype.keyup = function (key) {
+    if (key !== undefined && key !== null) {
+        this.currentDown |= (1 << key);
+    }
+};
+
 // --- GESTION CLAVIER ---
 GameBoyAdvanceKeypad.prototype.keyboardHandler = function (e) {
     var toggle = 0;
@@ -43,11 +56,10 @@ GameBoyAdvanceKeypad.prototype.keyboardHandler = function (e) {
         default: return;
     }
 
-    toggle = 1 << toggle;
     if (e.type === "keydown") {
-        this.currentDown &= ~toggle;
+        this.keydown(toggle);
     } else {
-        this.currentDown |= toggle;
+        this.keyup(toggle);
     }
 
     if (this.eatInput) e.preventDefault();
@@ -55,86 +67,14 @@ GameBoyAdvanceKeypad.prototype.keyboardHandler = function (e) {
 
 // --- GESTION SOURIS (A = clic gauche, B = clic droit) ---
 GameBoyAdvanceKeypad.prototype.mouseHandler = function (e) {
-    let toggle = null;
-
     if (e.type === "mousedown") {
-        if (e.button === 0) { 
-            toggle = 1 << this.A;
-            this.currentDown &= ~toggle;
-        } else if (e.button === 2) { 
-            toggle = 1 << this.B;
-            this.currentDown &= ~toggle;
-        }
+        if (e.button === 0) this.keydown(this.A);
+        else if (e.button === 2) this.keydown(this.B);
     } else if (e.type === "mouseup") {
-        if (e.button === 0) {
-            toggle = 1 << this.A;
-            this.currentDown |= toggle;
-        } else if (e.button === 2) {
-            toggle = 1 << this.B;
-            this.currentDown |= toggle;
-        }
+        if (e.button === 0) this.keyup(this.A);
+        else if (e.button === 2) this.keyup(this.B);
     }
-
-    if (this.eatInput && toggle !== null) e.preventDefault();
-};
-
-// --- CONFIGURATION MANETTE XBOX ---
-GameBoyAdvanceKeypad.prototype.gamepadHandler = function (gamepad) {
-    let value = 0;
-
-    // --- Sticks Analogiques (Zone morte à 0.5)
-    const AXIS_THRESHOLD = 0.5;
-    const axisX = gamepad.axes[0]; // Stick Gauche - Horizontal
-    const axisY = gamepad.axes[1]; // Stick Gauche - Vertical
-
-    if (axisX < -AXIS_THRESHOLD) value |= 1 << this.LEFT;
-    if (axisX > AXIS_THRESHOLD) value |= 1 << this.RIGHT;
-    if (axisY < -AXIS_THRESHOLD) value |= 1 << this.UP;
-    if (axisY > AXIS_THRESHOLD) value |= 1 << this.DOWN;
-
-    // --- Croix Directionnelle (D-Pad)
-    if (gamepad.buttons[12]?.pressed) value |= 1 << this.UP;     // Haut
-    if (gamepad.buttons[13]?.pressed) value |= 1 << this.DOWN;   // Bas
-    if (gamepad.buttons[14]?.pressed) value |= 1 << this.LEFT;   // Gauche
-    if (gamepad.buttons[15]?.pressed) value |= 1 << this.RIGHT;  // Droite
-
-    // --- Boutons d'action Xbox
-    if (gamepad.buttons[0]?.pressed) value |= 1 << this.B; // Bouton A (Xbox) -> GBA B
-    if (gamepad.buttons[1]?.pressed) value |= 1 << this.A; // Bouton B (Xbox) -> GBA A
-    if (gamepad.buttons[2]?.pressed) value |= 1 << this.B; // Bouton X (Xbox) -> GBA B (Doublon confort)
-    
-    // --- Gâchettes (L et R)
-    if (gamepad.buttons[4]?.pressed) value |= 1 << this.L; // LB (Xbox) -> GBA L
-    if (gamepad.buttons[5]?.pressed) value |= 1 << this.R; // RB (Xbox) -> GBA R
-
-    // --- Menus (Start et Select)
-    if (gamepad.buttons[9]?.pressed) value |= 1 << this.START;  // Bouton Menu/Start (Xbox)
-    if (gamepad.buttons[8]?.pressed) value |= 1 << this.SELECT; // Bouton Affichage/Back (Xbox)
-
-    // --- Synchronisation directe avec le cœur de l'émulateur
-    this.currentDown = ~value & 0x3FF;
-};
-
-// --- GESTION CONNEXION / DÉCONNEXION ---
-GameBoyAdvanceKeypad.prototype.gamepadConnectHandler = function (gamepad) {
-    console.log("🎮 Manette Xbox connectée :", gamepad.id);
-    this.gamepads.push(gamepad);
-};
-
-GameBoyAdvanceKeypad.prototype.gamepadDisconnectHandler = function (gamepad) {
-    console.log("❌ Manette Xbox déconnectée :", gamepad.id);
-    this.gamepads = this.gamepads.filter(g => g !== gamepad);
-};
-
-// --- POLLING DE LA MANETTE ---
-GameBoyAdvanceKeypad.prototype.pollGamepads = function () {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const pad of pads) {
-        if (pad) {
-            this.gamepadHandler(pad);
-            break;
-        }
-    }
+    if (this.eatInput && (e.button === 0 || e.button === 2)) e.preventDefault();
 };
 
 // --- ENREGISTREMENT DES ÉVÉNEMENTS ---
@@ -145,15 +85,4 @@ GameBoyAdvanceKeypad.prototype.registerHandlers = function () {
     window.addEventListener("mousedown", this.mouseHandler.bind(this), true);
     window.addEventListener("mouseup", this.mouseHandler.bind(this), true);
     window.addEventListener("contextmenu", e => e.preventDefault(), true);
-
-    window.addEventListener("gamepadconnected", e => this.gamepadConnectHandler(e.gamepad));
-    window.addEventListener("gamepaddisconnected", e => this.gamepadDisconnectHandler(e.gamepad));
-
-    // Lancement de la boucle invisible en arrière-plan
-    const self = this;
-    function loop() {
-        self.pollGamepads();
-        requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
 };
